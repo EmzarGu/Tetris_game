@@ -116,9 +116,13 @@
             transparent: true,
             opacity: 0.5
         });
+        const edgeGeom = new THREE.EdgesGeometry(geom);
+        const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
         const cubes = [];
         cells.forEach(() => {
             const mesh = new THREE.Mesh(geom, mat);
+            const edges = new THREE.LineSegments(edgeGeom, edgeMat);
+            mesh.add(edges);
             group.add(mesh);
             cubes.push(mesh);
         });
