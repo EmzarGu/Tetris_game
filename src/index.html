@@ -108,10 +108,15 @@
         [1, 1, 0]
     ];
 
-    function createTetromino(cells, color) {
+    function createTetromino(cells) {
         const group = new THREE.Group();
         const geom = new THREE.BoxGeometry(cellSize, cellSize, cellSize);
-        const material = new THREE.MeshNormalMaterial({});
+        const material = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.5
+        });
         cells.forEach(([x, y, z]) => {
             const cube = new THREE.Mesh(geom, material);
             cube.position.set((x - 1.5) * cellSize + cellSize / 2, y * cellSize + cellSize / 2, (z - 0.5) * cellSize + cellSize / 2);
