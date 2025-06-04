@@ -126,14 +126,15 @@
             group.add(mesh);
             cubes.push(mesh);
         });
-        return { group, cubes };
+        return { group, cubes, material: mat };
     }
 
-    const { group: tetromino, cubes } = createTetromino(tShape);
+    const { group: tetromino, cubes, material: tetrominoMaterial } = createTetromino(tShape);
 
     // Position of the piece pivot in grid coordinates
     const tetrominoPos = new THREE.Vector3(Math.floor(cols / 2), depth - 2, Math.floor(rows / 2));
     let tetrominoCells = tShape.map(v => v.clone());
+    let hasLanded = false;
 
     scene.add(tetromino);
 
@@ -147,6 +148,20 @@
             );
         }
     }
+
+    function dropPiece() {
+        if (hasLanded) return;
+        tetrominoPos.y -= 1;
+        if (!insideBounds(tetrominoPos, tetrominoCells)) {
+            tetrominoPos.y += 1;
+            hasLanded = true;
+            tetrominoMaterial.opacity = 1.0; // 0% transparency
+            clearInterval(dropTimer);
+        }
+        updateTetromino();
+    }
+
+    const dropTimer = setInterval(dropPiece, 2000);
 
     function insideBounds(pos, cells) {
         for (const c of cells) {
