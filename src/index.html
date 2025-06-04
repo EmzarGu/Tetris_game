@@ -294,12 +294,14 @@
                 }
             }
         }
+
         // remove active falling piece
         if (tetromino) {
             scene.remove(tetromino);
             tetromino = null;
         }
         clearInterval(dropTimer);
+
         gameOver = false;
         paused = false;
         pauseBtn.textContent = 'Pause';
@@ -471,6 +473,7 @@
             resetGame();
             return;
         }
+
         if (key === '+' || key === '=') {
             level += 1;
             updateScore();
