@@ -27,15 +27,14 @@
 
     const wellGroup = new THREE.Group();
 
-    // Bottom grid lines
-    const gridHelper = new THREE.GridHelper(cols * cellSize, cols, 0x888888, 0x444444);
-    gridHelper.rotation.x = Math.PI / 2;
+    // Bottom grid lines in green
+    const gridHelper = new THREE.GridHelper(cols * cellSize, cols, 0x00ff00, 0x00ff00);
     gridHelper.position.y = 0;
     gridHelper.scale.z = rows / cols;
     wellGroup.add(gridHelper);
 
-    // Create walls
-    const wallMaterial = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, opacity: 0.5, transparent: true });
+    // Create wireframe walls without colors
+    const wallMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true });
     const wallGeo1 = new THREE.BoxGeometry(cols * cellSize + wallThickness*2, wallHeight, wallThickness);
     const wallGeo2 = new THREE.BoxGeometry(wallThickness, wallHeight, rows * cellSize);
 
@@ -63,8 +62,8 @@
 
     scene.add(wellGroup);
 
-    // Camera setup: slightly angled top-down view
-    camera.position.set(10, 15, 20);
+    // Camera setup: perspective view from above
+    camera.position.set(0, 20, 20);
     camera.lookAt(0, 0, 0);
 
     function animate() {

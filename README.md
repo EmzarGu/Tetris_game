@@ -1,6 +1,6 @@
 # Tetris_game
 
-This repository contains a simple 3D Tetris well rendered using [three.js](https://threejs.org/). The initial implementation focuses on displaying the well from a top-down perspective. Future steps will expand the project into a full game.
+This repository contains a simple 3D Tetris well rendered using [three.js](https://threejs.org/). The scene shows the well from a top-down perspective with green grid lines and wireframe walls. Future steps will expand the project into a full game.
 
 ## How to view
 
