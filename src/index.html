@@ -25,7 +25,9 @@
 <body>
 <div id="overlay">
     <div id="score">Score: 0</div>
+    <div id="level">Level: 1</div>
     <div id="highScore">High Score: 0</div>
+    <div id="gameOver" style="display:none; font-weight:bold;">Game Over</div>
     <div id="controls">
         Move: ← ↑ → ↓<br>
         Rotate: W/A/S/D<br>
@@ -44,7 +46,9 @@
     document.body.appendChild(renderer.domElement);
 
     const scoreEl = document.getElementById('score');
+    const levelEl = document.getElementById('level');
     const highScoreEl = document.getElementById('highScore');
+    const gameOverEl = document.getElementById('gameOver');
     const pauseBtn = document.getElementById('pauseBtn');
     const resetBtn = document.getElementById('resetBtn');
 
@@ -215,10 +219,12 @@
 
     let score = 0;
     let highScore = 0;
+    let level = 1;
     let paused = false;
 
     function updateScore() {
         scoreEl.textContent = `Score: ${score}`;
+        levelEl.textContent = `Level: ${level}`;
         highScoreEl.textContent = `High Score: ${highScore}`;
     }
 
@@ -252,7 +258,8 @@
     function startDropTimer() {
         clearInterval(dropTimer);
         if (!paused) {
-            dropTimer = setInterval(dropPiece, 2000);
+            const delay = Math.max(2000 / level, 100);
+            dropTimer = setInterval(dropPiece, delay);
         }
     }
 
@@ -273,7 +280,9 @@
     function resetGame() {
         highScore = Math.max(highScore, score);
         score = 0;
+        level = 1;
         updateScore();
+        gameOverEl.style.display = 'none';
         // remove all cubes from scene
         for (let x = 0; x < cols; x++) {
             for (let y = 0; y < depth; y++) {
@@ -372,8 +381,10 @@
             }
             if (full) {
                 removeLayer(y);
-                score++;
+                score += level;
+                level += 1;
                 updateScore();
+                startDropTimer();
                 y--; // recheck same layer index after collapsing
             }
         }
@@ -425,7 +436,7 @@
             gameOver = true;
             highScore = Math.max(highScore, score);
             updateScore();
-            alert('Game Over');
+            gameOverEl.style.display = 'block';
             return;
         }
         const created = createTetromino(shape.cells, shape.color);
