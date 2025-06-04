@@ -111,13 +111,16 @@
     function createTetromino(cells) {
         const group = new THREE.Group();
         const geom = new THREE.BoxGeometry(cellSize, cellSize, cellSize);
-        const edgeGeom = new THREE.EdgesGeometry(geom);
-        const material = new THREE.LineBasicMaterial({ color: 0x0000ff, linewidth: 8 });
+        const mat = new THREE.MeshBasicMaterial({
+            color: 0x0000ff,
+            transparent: true,
+            opacity: 0.5
+        });
         const cubes = [];
         cells.forEach(() => {
-            const edges = new THREE.LineSegments(edgeGeom, material);
-            group.add(edges);
-            cubes.push(edges);
+            const mesh = new THREE.Mesh(geom, mat);
+            group.add(mesh);
+            cubes.push(mesh);
         });
         return { group, cubes };
     }
