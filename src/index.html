@@ -100,12 +100,78 @@
 
     scene.add(wellGroup);
 
-    // Tetromino data (T shape). Coordinates are relative to the piece pivot at the origin.
-    const tShape = [
-        new THREE.Vector3(-1, 0, 0),
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(1, 0, 0),
-        new THREE.Vector3(0, 1, 0)
+    // Tetromino definitions with individual colors
+    const shapes = [
+        {
+            // I piece
+            color: 0x00ffff,
+            cells: [
+                new THREE.Vector3(-2, 0, 0),
+                new THREE.Vector3(-1, 0, 0),
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(1, 0, 0)
+            ]
+        },
+        {
+            // O piece
+            color: 0xffff00,
+            cells: [
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(1, 0, 0),
+                new THREE.Vector3(0, 1, 0),
+                new THREE.Vector3(1, 1, 0)
+            ]
+        },
+        {
+            // T piece
+            color: 0x800080,
+            cells: [
+                new THREE.Vector3(-1, 0, 0),
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(1, 0, 0),
+                new THREE.Vector3(0, 1, 0)
+            ]
+        },
+        {
+            // S piece
+            color: 0x00ff00,
+            cells: [
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(1, 0, 0),
+                new THREE.Vector3(-1, 1, 0),
+                new THREE.Vector3(0, 1, 0)
+            ]
+        },
+        {
+            // Z piece
+            color: 0xff0000,
+            cells: [
+                new THREE.Vector3(-1, 0, 0),
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 1, 0),
+                new THREE.Vector3(1, 1, 0)
+            ]
+        },
+        {
+            // J piece
+            color: 0x0000ff,
+            cells: [
+                new THREE.Vector3(-1, 0, 0),
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(1, 0, 0),
+                new THREE.Vector3(-1, 1, 0)
+            ]
+        },
+        {
+            // L piece
+            color: 0xffa500,
+            cells: [
+                new THREE.Vector3(-1, 0, 0),
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(1, 0, 0),
+                new THREE.Vector3(1, 1, 0)
+            ]
+        }
     ];
 
     // Board state: true if a cell is occupied
@@ -117,11 +183,11 @@
         }
     }
 
-    function createTetromino(cells) {
+    function createTetromino(cells, color) {
         const group = new THREE.Group();
         const geom = new THREE.BoxGeometry(cellSize, cellSize, cellSize);
         const mat = new THREE.MeshBasicMaterial({
-            color: 0x0000ff,
+            color: color,
             transparent: true,
             opacity: 0.5
         });
@@ -216,14 +282,15 @@
     }
 
     function spawnTetromino() {
+        const shape = shapes[Math.floor(Math.random() * shapes.length)];
         tetrominoPos = new THREE.Vector3(Math.floor(cols / 2), depth - 2, Math.floor(rows / 2));
-        tetrominoCells = tShape.map(v => v.clone());
+        tetrominoCells = shape.cells.map(v => v.clone());
         if (!canPlace(tetrominoPos, tetrominoCells)) {
             gameOver = true;
             alert('Game Over');
             return;
         }
-        const created = createTetromino(tShape);
+        const created = createTetromino(shape.cells, shape.color);
         tetromino = created.group;
         cubes = created.cubes;
         tetrominoMaterial = created.material;
