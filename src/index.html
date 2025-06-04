@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Tetris Well</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+</head>
+<body>
+<script>
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Create well dimensions
+    const cols = 5;      // well width in cells
+    const rows = 5;      // well length in cells
+    const depth = 12;    // well depth in cells
+    const cellSize = 1;
+    const wallThickness = 0.1;
+    const wallHeight = depth * cellSize;
+
+    const wellGroup = new THREE.Group();
+
+    // Bottom grid lines in green
+    const gridMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+    const gridGroup = new THREE.Group();
+    for (let i = 0; i <= cols; i++) {
+        const x = (i - cols / 2) * cellSize;
+        const points = [
+            new THREE.Vector3(x, 0, -rows * cellSize / 2),
+            new THREE.Vector3(x, 0, rows * cellSize / 2)
+        ];
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const line = new THREE.Line(geometry, gridMaterial);
+        gridGroup.add(line);
+    }
+    for (let j = 0; j <= rows; j++) {
+        const z = (j - rows / 2) * cellSize;
+        const points = [
+            new THREE.Vector3(-cols * cellSize / 2, 0, z),
+            new THREE.Vector3(cols * cellSize / 2, 0, z)
+        ];
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const line = new THREE.Line(geometry, gridMaterial);
+        gridGroup.add(line);
+    }
+    wellGroup.add(gridGroup);
+
+    // Create wireframe walls
+    const wallMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
+    const wallGeo1 = new THREE.BoxGeometry(cols * cellSize + wallThickness*2, wallHeight, wallThickness);
+    const wallGeo2 = new THREE.BoxGeometry(wallThickness, wallHeight, rows * cellSize);
+
+    // Back and front walls
+    const backWall = new THREE.Mesh(wallGeo1, wallMaterial);
+    backWall.position.z = -rows*cellSize/2 - wallThickness/2;
+    backWall.position.y = wallHeight/2;
+    wellGroup.add(backWall);
+
+    const frontWall = new THREE.Mesh(wallGeo1, wallMaterial);
+    frontWall.position.z = rows*cellSize/2 + wallThickness/2;
+    frontWall.position.y = wallHeight/2;
+    wellGroup.add(frontWall);
+
+    // Left and right walls
+    const leftWall = new THREE.Mesh(wallGeo2, wallMaterial);
+    leftWall.position.x = -cols*cellSize/2 - wallThickness/2;
+    leftWall.position.y = wallHeight/2;
+    wellGroup.add(leftWall);
+
+    const rightWall = new THREE.Mesh(wallGeo2, wallMaterial);
+    rightWall.position.x = cols*cellSize/2 + wallThickness/2;
+    rightWall.position.y = wallHeight/2;
+    wellGroup.add(rightWall);
+
+    scene.add(wellGroup);
+
+    // Camera setup: perspective view from above the well
+    camera.position.set(8, 15, 8);
+    camera.lookAt(0, 0, 0);
+
+    function animate() {
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // Handle resizing
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+</script>
+</body>
+</html>
