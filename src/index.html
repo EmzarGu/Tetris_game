@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Tetris Well</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+</head>
+<body>
+<script>
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Create well dimensions
+    const cols = 10;
+    const rows = 20;
+    const cellSize = 1;
+    const wallThickness = 0.1;
+    const wallHeight = 10;
+
+    const wellGroup = new THREE.Group();
+
+    // Bottom grid lines
+    const gridHelper = new THREE.GridHelper(cols * cellSize, cols, 0x888888, 0x444444);
+    gridHelper.rotation.x = Math.PI / 2;
+    gridHelper.position.y = 0;
+    gridHelper.scale.z = rows / cols;
+    wellGroup.add(gridHelper);
+
+    // Create walls
+    const wallMaterial = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, opacity: 0.5, transparent: true });
+    const wallGeo1 = new THREE.BoxGeometry(cols * cellSize + wallThickness*2, wallHeight, wallThickness);
+    const wallGeo2 = new THREE.BoxGeometry(wallThickness, wallHeight, rows * cellSize);
+
+    // Back and front walls
+    const backWall = new THREE.Mesh(wallGeo1, wallMaterial);
+    backWall.position.z = -rows*cellSize/2 - wallThickness/2;
+    backWall.position.y = wallHeight/2;
+    wellGroup.add(backWall);
+
+    const frontWall = new THREE.Mesh(wallGeo1, wallMaterial);
+    frontWall.position.z = rows*cellSize/2 + wallThickness/2;
+    frontWall.position.y = wallHeight/2;
+    wellGroup.add(frontWall);
+
+    // Left and right walls
+    const leftWall = new THREE.Mesh(wallGeo2, wallMaterial);
+    leftWall.position.x = -cols*cellSize/2 - wallThickness/2;
+    leftWall.position.y = wallHeight/2;
+    wellGroup.add(leftWall);
+
+    const rightWall = new THREE.Mesh(wallGeo2, wallMaterial);
+    rightWall.position.x = cols*cellSize/2 + wallThickness/2;
+    rightWall.position.y = wallHeight/2;
+    wellGroup.add(rightWall);
+
+    scene.add(wellGroup);
+
+    // Camera setup: slightly angled top-down view
+    camera.position.set(10, 15, 20);
+    camera.lookAt(0, 0, 0);
+
+    function animate() {
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // Handle resizing
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+</script>
+</body>
+</html>
