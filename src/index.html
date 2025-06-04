@@ -32,7 +32,8 @@
         Move: ← ↑ → ↓<br>
         Rotate: W/A/S/D<br>
         Pause: Space<br>
-        Reset: R
+        Reset: R<br>
+        Speed Up: +
     </div>
     <button id="pauseBtn">Pause</button>
     <button id="resetBtn">Reset</button>
@@ -293,6 +294,14 @@
                 }
             }
         }
+
+        // remove active falling piece
+        if (tetromino) {
+            scene.remove(tetromino);
+            tetromino = null;
+        }
+        clearInterval(dropTimer);
+
         gameOver = false;
         paused = false;
         pauseBtn.textContent = 'Pause';
@@ -462,6 +471,13 @@
         }
         if (key === 'r') {
             resetGame();
+            return;
+        }
+
+        if (key === '+' || key === '=') {
+            level += 1;
+            updateScore();
+            startDropTimer();
             return;
         }
         if (gameOver || paused) return;
