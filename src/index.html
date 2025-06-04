@@ -108,6 +108,15 @@
         new THREE.Vector3(0, 1, 0)
     ];
 
+    // Board state: true if a cell is occupied
+    const board = [];
+    for (let x = 0; x < cols; x++) {
+        board[x] = [];
+        for (let y = 0; y < depth; y++) {
+            board[x][y] = new Array(rows).fill(false);
+        }
+    }
+
     function createTetromino(cells) {
         const group = new THREE.Group();
         const geom = new THREE.BoxGeometry(cellSize, cellSize, cellSize);
@@ -129,16 +138,14 @@
         return { group, cubes, material: mat };
     }
 
-    const { group: tetromino, cubes, material: tetrominoMaterial } = createTetromino(tShape);
-
-    // Position of the piece pivot in grid coordinates
-    const tetrominoPos = new THREE.Vector3(Math.floor(cols / 2), depth - 2, Math.floor(rows / 2));
-    let tetrominoCells = tShape.map(v => v.clone());
+    let tetromino, cubes, tetrominoMaterial;
+    let tetrominoPos, tetrominoCells;
     let hasLanded = false;
-
-    scene.add(tetromino);
+    let gameOver = false;
+    let dropTimer;
 
     function updateTetromino() {
+        if (!tetromino) return;
         for (let i = 0; i < cubes.length; i++) {
             const c = tetrominoCells[i];
             cubes[i].position.set(
@@ -149,21 +156,7 @@
         }
     }
 
-    function dropPiece() {
-        if (hasLanded) return;
-        tetrominoPos.y -= 1;
-        if (!insideBounds(tetrominoPos, tetrominoCells)) {
-            tetrominoPos.y += 1;
-            hasLanded = true;
-            tetrominoMaterial.opacity = 1.0; // 0% transparency
-            clearInterval(dropTimer);
-        }
-        updateTetromino();
-    }
-
-    const dropTimer = setInterval(dropPiece, 2000);
-
-    function insideBounds(pos, cells) {
+    function canPlace(pos, cells) {
         for (const c of cells) {
             const x = pos.x + c.x;
             const y = pos.y + c.y;
@@ -171,8 +164,26 @@
             if (x < 0 || x >= cols || z < 0 || z >= rows || y < 0 || y >= depth) {
                 return false;
             }
+            if (board[x][y][z]) {
+                return false;
+            }
         }
         return true;
+    }
+
+    function dropPiece() {
+        if (hasLanded || gameOver) return;
+        tetrominoPos.y -= 1;
+        if (!canPlace(tetrominoPos, tetrominoCells)) {
+            tetrominoPos.y += 1;
+            landPiece();
+            return;
+        }
+        updateTetromino();
+    }
+
+    function insideBounds(pos, cells) {
+        return canPlace(pos, cells);
     }
 
     function rotateX(dir) {
@@ -191,9 +202,41 @@
         ));
     }
 
-    updateTetromino();
+    function landPiece() {
+        hasLanded = true;
+        tetrominoMaterial.opacity = 1.0;
+        clearInterval(dropTimer);
+        for (const c of tetrominoCells) {
+            const x = tetrominoPos.x + c.x;
+            const y = tetrominoPos.y + c.y;
+            const z = tetrominoPos.z + c.z;
+            board[x][y][z] = true;
+        }
+        spawnTetromino();
+    }
+
+    function spawnTetromino() {
+        tetrominoPos = new THREE.Vector3(Math.floor(cols / 2), depth - 2, Math.floor(rows / 2));
+        tetrominoCells = tShape.map(v => v.clone());
+        if (!canPlace(tetrominoPos, tetrominoCells)) {
+            gameOver = true;
+            alert('Game Over');
+            return;
+        }
+        const created = createTetromino(tShape);
+        tetromino = created.group;
+        cubes = created.cubes;
+        tetrominoMaterial = created.material;
+        hasLanded = false;
+        scene.add(tetromino);
+        updateTetromino();
+        dropTimer = setInterval(dropPiece, 2000);
+    }
+
+    spawnTetromino();
 
     document.addEventListener('keydown', (event) => {
+        if (gameOver) return;
         const key = event.key.toLowerCase();
         const oldPos = tetrominoPos.clone();
         const oldCells = tetrominoCells.map(v => v.clone());
