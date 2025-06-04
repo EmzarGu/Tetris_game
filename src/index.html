@@ -31,7 +31,8 @@
     <div id="controls">
         Move: ← ↑ → ↓<br>
         Rotate: W/A/S/D<br>
-        Pause: Space<br>
+        Pause: P<br>
+        Drop: Space<br>
         Reset: R<br>
         Speed Up: +
     </div>
@@ -255,6 +256,7 @@
     let hasLanded = false;
     let gameOver = false;
     let dropTimer;
+    const FAST_DROP_SPEED = 10; // cells per second for spacebar drop
 
     function startDropTimer() {
         clearInterval(dropTimer);
@@ -335,15 +337,22 @@
         return true;
     }
 
-    function dropPiece() {
-        if (hasLanded || gameOver || paused) return;
-        tetrominoPos.y -= 1;
-        if (!canPlace(tetrominoPos, tetrominoCells)) {
-            tetrominoPos.y += 1;
-            landPiece();
-            return;
+   function dropPiece() {
+       if (hasLanded || gameOver || paused) return;
+       tetrominoPos.y -= 1;
+       if (!canPlace(tetrominoPos, tetrominoCells)) {
+           tetrominoPos.y += 1;
+           landPiece();
+           return;
+       }
+       updateTetromino();
+   }
+
+    function startFastDrop() {
+        clearInterval(dropTimer);
+        if (!paused && !gameOver) {
+            dropTimer = setInterval(dropPiece, 1000 / FAST_DROP_SPEED);
         }
-        updateTetromino();
     }
 
     function insideBounds(pos, cells) {
@@ -465,8 +474,12 @@
 
     document.addEventListener('keydown', (event) => {
         const key = event.key.toLowerCase();
-        if (key === ' ') {
+        if (key === 'p') {
             paused ? resumeGame() : pauseGame();
+            return;
+        }
+        if (key === ' ') {
+            startFastDrop();
             return;
         }
         if (key === 'r') {
