@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Tetris Well</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: sans-serif; }
+        canvas { display: block; }
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            padding: 8px;
+            color: white;
+        }
+        #controls {
+            margin-top: 8px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        button { margin-right: 4px; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+</head>
+<body>
+<div id="overlay">
+    <div id="score">Score: 0</div>
+    <div id="level">Level: 1</div>
+    <div id="highScore">High Score: 0</div>
+    <div id="gameOver" style="display:none; font-weight:bold;">Game Over</div>
+    <div id="controls">
+        Move: ← ↑ → ↓<br>
+        Rotate: W/A/S/D<br>
+        Pause: Space<br>
+        Reset: R<br>
+        Speed Up: +
+    </div>
+    <button id="pauseBtn">Pause</button>
+    <button id="resetBtn">Reset</button>
+</div>
+<script>
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const scoreEl = document.getElementById('score');
+    const levelEl = document.getElementById('level');
+    const highScoreEl = document.getElementById('highScore');
+    const gameOverEl = document.getElementById('gameOver');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    // Create well dimensions
+    const cols = 5;      // well width in cells
+    const rows = 5;      // well length in cells
+    const depth = 12;    // well depth in cells
+    const cellSize = 1;
+    const wallHeight = depth * cellSize;
+
+    const wellGroup = new THREE.Group();
+
+    // Bottom grid lines in green
+    const gridMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00, linewidth: 2 });
+    const gridGroup = new THREE.Group();
+    for (let i = 0; i <= cols; i++) {
+        const x = (i - cols / 2) * cellSize;
+        const points = [
+            new THREE.Vector3(x, 0, -rows * cellSize / 2),
+            new THREE.Vector3(x, 0, rows * cellSize / 2)
+        ];
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const line = new THREE.Line(geometry, gridMaterial);
+        gridGroup.add(line);
+    }
+    for (let j = 0; j <= rows; j++) {
+        const z = (j - rows / 2) * cellSize;
+        const points = [
+            new THREE.Vector3(-cols * cellSize / 2, 0, z),
+            new THREE.Vector3(cols * cellSize / 2, 0, z)
+        ];
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const line = new THREE.Line(geometry, gridMaterial);
+        gridGroup.add(line);
+    }
+    wellGroup.add(gridGroup);
+
+    // Add green grid lines on each wall
+    function addWallGrid(width, height, constant, orientation) {
+        // orientation: 'z' for planes parallel to X-Y at constant Z
+        //              'x' for planes parallel to Z-Y at constant X
+        for (let i = 0; i <= width; i++) {
+            const offset = (i - width / 2) * cellSize;
+            const points = orientation === 'z'
+                ? [
+                    new THREE.Vector3(offset, 0, constant),
+                    new THREE.Vector3(offset, height, constant)
+                  ]
+                : [
+                    new THREE.Vector3(constant, 0, offset),
+                    new THREE.Vector3(constant, height, offset)
+                  ];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            gridGroup.add(new THREE.Line(geometry, gridMaterial));
+        }
+        for (let j = 0; j <= height / cellSize; j++) {
+            const y = j * cellSize;
+            const points = orientation === 'z'
+                ? [
+                    new THREE.Vector3(-width * cellSize / 2, y, constant),
+                    new THREE.Vector3(width * cellSize / 2, y, constant)
+                  ]
+                : [
+                    new THREE.Vector3(constant, y, -width * cellSize / 2),
+                    new THREE.Vector3(constant, y, width * cellSize / 2)
+                  ];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            gridGroup.add(new THREE.Line(geometry, gridMaterial));
+        }
+    }
+
+    // Back and front walls at constant z
+    const backZ = -rows * cellSize / 2;
+    const frontZ = rows * cellSize / 2;
+    addWallGrid(cols, wallHeight, backZ, 'z');
+    addWallGrid(cols, wallHeight, frontZ, 'z');
+
+    // Left and right walls at constant x
+    const leftX = -cols * cellSize / 2;
+    const rightX = cols * cellSize / 2;
+    addWallGrid(rows, wallHeight, leftX, 'x');
+    addWallGrid(rows, wallHeight, rightX, 'x');
+
+    scene.add(wellGroup);
+
+    // Tetromino definitions with individual colors
+    const shapes = [
+        {
+            // I piece
+            color: 0x00ffff,
+            cells: [
+                new THREE.Vector3(-2, 0, 0),
+                new THREE.Vector3(-1, 0, 0),
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(1, 0, 0)
+            ]
+        },
+        {
+            // O piece
+            color: 0xffff00,
+            cells: [
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(1, 0, 0),
+                new THREE.Vector3(0, 1, 0),
+                new THREE.Vector3(1, 1, 0)
+            ]
+        },
+        {
+            // T piece
+            color: 0x800080,
+            cells: [
+                new THREE.Vector3(-1, 0, 0),
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(1, 0, 0),
+                new THREE.Vector3(0, 1, 0)
+            ]
+        },
+        {
+            // S piece
+            color: 0x00ff00,
+            cells: [
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(1, 0, 0),
+                new THREE.Vector3(-1, 1, 0),
+                new THREE.Vector3(0, 1, 0)
+            ]
+        },
+        {
+            // Z piece
+            color: 0xff0000,
+            cells: [
+                new THREE.Vector3(-1, 0, 0),
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(0, 1, 0),
+                new THREE.Vector3(1, 1, 0)
+            ]
+        },
+        {
+            // J piece
+            color: 0x0000ff,
+            cells: [
+                new THREE.Vector3(-1, 0, 0),
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(1, 0, 0),
+                new THREE.Vector3(-1, 1, 0)
+            ]
+        },
+        {
+            // L piece
+            color: 0xffa500,
+            cells: [
+                new THREE.Vector3(-1, 0, 0),
+                new THREE.Vector3(0, 0, 0),
+                new THREE.Vector3(1, 0, 0),
+                new THREE.Vector3(1, 1, 0)
+            ]
+        }
+    ];
+
+    // Board state: stores the mesh occupying each cell or null
+    const board = [];
+    for (let x = 0; x < cols; x++) {
+        board[x] = [];
+    for (let y = 0; y < depth; y++) {
+        board[x][y] = new Array(rows).fill(null);
+    }
+}
+
+    let score = 0;
+    let highScore = 0;
+    let level = 1;
+    let paused = false;
+
+    function updateScore() {
+        scoreEl.textContent = `Score: ${score}`;
+        levelEl.textContent = `Level: ${level}`;
+        highScoreEl.textContent = `High Score: ${highScore}`;
+    }
+
+    function createTetromino(cells, color) {
+        const group = new THREE.Group();
+        const geom = new THREE.BoxGeometry(cellSize, cellSize, cellSize);
+        const mat = new THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: 0.5
+        });
+        const edgeGeom = new THREE.EdgesGeometry(geom);
+        const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
+        const cubes = [];
+        cells.forEach(() => {
+            const mesh = new THREE.Mesh(geom, mat);
+            const edges = new THREE.LineSegments(edgeGeom, edgeMat);
+            mesh.add(edges);
+            group.add(mesh);
+            cubes.push(mesh);
+        });
+        return { group, cubes, material: mat };
+    }
+
+    let tetromino, cubes, tetrominoMaterial;
+    let tetrominoPos, tetrominoCells;
+    let hasLanded = false;
+    let gameOver = false;
+    let dropTimer;
+
+    function startDropTimer() {
+        clearInterval(dropTimer);
+        if (!paused) {
+            const delay = Math.max(2000 / level, 100);
+            dropTimer = setInterval(dropPiece, delay);
+        }
+    }
+
+    function pauseGame() {
+        if (paused) return;
+        paused = true;
+        clearInterval(dropTimer);
+        pauseBtn.textContent = 'Resume';
+    }
+
+    function resumeGame() {
+        if (!paused) return;
+        paused = false;
+        pauseBtn.textContent = 'Pause';
+        startDropTimer();
+    }
+
+    function resetGame() {
+        highScore = Math.max(highScore, score);
+        score = 0;
+        level = 1;
+        updateScore();
+        gameOverEl.style.display = 'none';
+        // remove all cubes from scene
+        for (let x = 0; x < cols; x++) {
+            for (let y = 0; y < depth; y++) {
+                for (let z = 0; z < rows; z++) {
+                    const cube = board[x][y][z];
+                    if (cube) cube.parent.remove(cube);
+                    board[x][y][z] = null;
+                }
+            }
+        }
+        // remove active falling piece
+        if (tetromino) {
+            scene.remove(tetromino);
+            tetromino = null;
+        }
+        clearInterval(dropTimer);
+        gameOver = false;
+        paused = false;
+        pauseBtn.textContent = 'Pause';
+        spawnTetromino();
+    }
+
+    function updateTetromino() {
+        if (!tetromino) return;
+        for (let i = 0; i < cubes.length; i++) {
+            const c = tetrominoCells[i];
+            cubes[i].position.set(
+                (tetrominoPos.x + c.x - cols / 2 + 0.5) * cellSize,
+                (tetrominoPos.y + c.y + 0.5) * cellSize,
+                (tetrominoPos.z + c.z - rows / 2 + 0.5) * cellSize
+            );
+        }
+    }
+
+    function canPlace(pos, cells) {
+        for (const c of cells) {
+            const x = pos.x + c.x;
+            const y = pos.y + c.y;
+            const z = pos.z + c.z;
+            if (x < 0 || x >= cols || z < 0 || z >= rows || y < 0 || y >= depth) {
+                return false;
+            }
+            if (board[x][y][z]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function dropPiece() {
+        if (hasLanded || gameOver || paused) return;
+        tetrominoPos.y -= 1;
+        if (!canPlace(tetrominoPos, tetrominoCells)) {
+            tetrominoPos.y += 1;
+            landPiece();
+            return;
+        }
+        updateTetromino();
+    }
+
+    function insideBounds(pos, cells) {
+        return canPlace(pos, cells);
+    }
+
+    function rotateX(dir) {
+        tetrominoCells = tetrominoCells.map(v => new THREE.Vector3(
+            v.x,
+            dir > 0 ? -v.z : v.z,
+            dir > 0 ? v.y : -v.y
+        ));
+    }
+
+    function rotateY(dir) {
+        tetrominoCells = tetrominoCells.map(v => new THREE.Vector3(
+            dir > 0 ? v.z : -v.z,
+            v.y,
+            dir > 0 ? -v.x : v.x
+        ));
+    }
+
+    function attemptKick(oldPos, cells) {
+        const kicks = [
+            [0, 0],
+            [1, 0], [-1, 0], [0, 1], [0, -1],
+            [1, 1], [-1, 1], [1, -1], [-1, -1],
+            [2, 0], [-2, 0], [0, 2], [0, -2]
+        ];
+        for (const [dx, dz] of kicks) {
+            const pos = new THREE.Vector3(oldPos.x + dx, oldPos.y, oldPos.z + dz);
+            if (insideBounds(pos, cells)) return pos;
+        }
+        return null;
+    }
+
+    function clearFullLayers() {
+        for (let y = 0; y < depth; y++) {
+            let full = true;
+            for (let x = 0; x < cols && full; x++) {
+                for (let z = 0; z < rows; z++) {
+                    if (!board[x][y][z]) { full = false; break; }
+                }
+            }
+            if (full) {
+                removeLayer(y);
+                score += level;
+                level += 1;
+                updateScore();
+                startDropTimer();
+                y--; // recheck same layer index after collapsing
+            }
+        }
+    }
+
+    function removeLayer(y) {
+        for (let x = 0; x < cols; x++) {
+            for (let z = 0; z < rows; z++) {
+                const cube = board[x][y][z];
+                if (cube) cube.parent.remove(cube);
+            }
+        }
+        for (let yy = y + 1; yy < depth; yy++) {
+            for (let x = 0; x < cols; x++) {
+                for (let z = 0; z < rows; z++) {
+                    const cube = board[x][yy][z];
+                    if (cube) cube.position.y -= cellSize;
+                    board[x][yy - 1][z] = cube;
+                }
+            }
+        }
+        for (let x = 0; x < cols; x++) {
+            for (let z = 0; z < rows; z++) {
+                board[x][depth - 1][z] = null;
+            }
+        }
+    }
+
+    function landPiece() {
+        hasLanded = true;
+        tetrominoMaterial.opacity = 1.0;
+        clearInterval(dropTimer);
+        for (let i = 0; i < tetrominoCells.length; i++) {
+            const c = tetrominoCells[i];
+            const x = tetrominoPos.x + c.x;
+            const y = tetrominoPos.y + c.y;
+            const z = tetrominoPos.z + c.z;
+            board[x][y][z] = cubes[i];
+        }
+        clearFullLayers();
+        spawnTetromino();
+    }
+
+    function spawnTetromino() {
+        const shape = shapes[Math.floor(Math.random() * shapes.length)];
+        tetrominoPos = new THREE.Vector3(Math.floor(cols / 2), depth - 2, Math.floor(rows / 2));
+        tetrominoCells = shape.cells.map(v => v.clone());
+        if (!canPlace(tetrominoPos, tetrominoCells)) {
+            gameOver = true;
+            highScore = Math.max(highScore, score);
+            updateScore();
+            gameOverEl.style.display = 'block';
+            return;
+        }
+        const created = createTetromino(shape.cells, shape.color);
+        tetromino = created.group;
+        cubes = created.cubes;
+        tetrominoMaterial = created.material;
+        hasLanded = false;
+        scene.add(tetromino);
+        updateTetromino();
+        startDropTimer();
+    }
+
+    updateScore();
+    spawnTetromino();
+    pauseBtn.addEventListener('click', () => paused ? resumeGame() : pauseGame());
+    resetBtn.addEventListener('click', resetGame);
+
+    document.addEventListener('keydown', (event) => {
+        const key = event.key.toLowerCase();
+        if (key === ' ') {
+            paused ? resumeGame() : pauseGame();
+            return;
+        }
+        if (key === 'r') {
+            resetGame();
+            return;
+        }
+        if (key === '+' || key === '=') {
+            level += 1;
+            updateScore();
+            startDropTimer();
+            return;
+        }
+        if (gameOver || paused) return;
+        
+        const oldPos = tetrominoPos.clone();
+        const oldCells = tetrominoCells.map(v => v.clone());
+        let rotated = false;
+        switch (key) {
+            case 'arrowleft':
+                tetrominoPos.x -= 1;
+                break;
+            case 'arrowright':
+                tetrominoPos.x += 1;
+                break;
+            case 'arrowup':
+                tetrominoPos.z -= 1;
+                break;
+            case 'arrowdown':
+                tetrominoPos.z += 1;
+                break;
+            case 'a':
+                rotateY(1); rotated = true;
+                break;
+            case 'd':
+                rotateY(-1); rotated = true;
+                break;
+            case 'w':
+                rotateX(1); rotated = true;
+                break;
+            case 's':
+                rotateX(-1); rotated = true;
+                break;
+            default:
+                return;
+        }
+        if (rotated) {
+            const kicked = attemptKick(oldPos, tetrominoCells);
+            if (kicked) {
+                tetrominoPos.copy(kicked);
+            } else {
+                tetrominoPos.copy(oldPos);
+                tetrominoCells = oldCells;
+            }
+        } else {
+            if (!insideBounds(tetrominoPos, tetrominoCells)) {
+                tetrominoPos.copy(oldPos);
+            }
+        }
+        updateTetromino();
+    });
+
+    // Camera setup: perspective view from above the well
+    camera.position.set(0, wallHeight * 1.5, 0);
+    camera.up.set(0, 0, -1);
+    camera.lookAt(0, 0, 0);
+
+    function animate() {
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // Handle resizing
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+</script>
+</body>
+</html>
