@@ -174,12 +174,12 @@
         }
     ];
 
-    // Board state: true if a cell is occupied
+    // Board state: stores the mesh occupying each cell or null
     const board = [];
     for (let x = 0; x < cols; x++) {
         board[x] = [];
         for (let y = 0; y < depth; y++) {
-            board[x][y] = new Array(rows).fill(false);
+            board[x][y] = new Array(rows).fill(null);
         }
     }
 
@@ -268,16 +268,70 @@
         ));
     }
 
+    function attemptKick(oldPos, cells) {
+        const kicks = [
+            [0, 0],
+            [1, 0], [-1, 0], [0, 1], [0, -1],
+            [1, 1], [-1, 1], [1, -1], [-1, -1],
+            [2, 0], [-2, 0], [0, 2], [0, -2]
+        ];
+        for (const [dx, dz] of kicks) {
+            const pos = new THREE.Vector3(oldPos.x + dx, oldPos.y, oldPos.z + dz);
+            if (insideBounds(pos, cells)) return pos;
+        }
+        return null;
+    }
+
+    function clearFullLayers() {
+        for (let y = 0; y < depth; y++) {
+            let full = true;
+            for (let x = 0; x < cols && full; x++) {
+                for (let z = 0; z < rows; z++) {
+                    if (!board[x][y][z]) { full = false; break; }
+                }
+            }
+            if (full) {
+                removeLayer(y);
+                y--; // recheck same layer index after collapsing
+            }
+        }
+    }
+
+    function removeLayer(y) {
+        for (let x = 0; x < cols; x++) {
+            for (let z = 0; z < rows; z++) {
+                const cube = board[x][y][z];
+                if (cube) cube.parent.remove(cube);
+            }
+        }
+        for (let yy = y + 1; yy < depth; yy++) {
+            for (let x = 0; x < cols; x++) {
+                for (let z = 0; z < rows; z++) {
+                    const cube = board[x][yy][z];
+                    if (cube) cube.position.y -= cellSize;
+                    board[x][yy - 1][z] = cube;
+                }
+            }
+        }
+        for (let x = 0; x < cols; x++) {
+            for (let z = 0; z < rows; z++) {
+                board[x][depth - 1][z] = null;
+            }
+        }
+    }
+
     function landPiece() {
         hasLanded = true;
         tetrominoMaterial.opacity = 1.0;
         clearInterval(dropTimer);
-        for (const c of tetrominoCells) {
+        for (let i = 0; i < tetrominoCells.length; i++) {
+            const c = tetrominoCells[i];
             const x = tetrominoPos.x + c.x;
             const y = tetrominoPos.y + c.y;
             const z = tetrominoPos.z + c.z;
-            board[x][y][z] = true;
+            board[x][y][z] = cubes[i];
         }
+        clearFullLayers();
         spawnTetromino();
     }
 
@@ -307,6 +361,7 @@
         const key = event.key.toLowerCase();
         const oldPos = tetrominoPos.clone();
         const oldCells = tetrominoCells.map(v => v.clone());
+        let rotated = false;
         switch (key) {
             case 'arrowleft':
                 tetrominoPos.x -= 1;
@@ -321,23 +376,32 @@
                 tetrominoPos.z += 1;
                 break;
             case 'a':
-                rotateY(1);
+                rotateY(1); rotated = true;
                 break;
             case 'd':
-                rotateY(-1);
+                rotateY(-1); rotated = true;
                 break;
             case 'w':
-                rotateX(1);
+                rotateX(1); rotated = true;
                 break;
             case 's':
-                rotateX(-1);
+                rotateX(-1); rotated = true;
                 break;
             default:
                 return;
         }
-        if (!insideBounds(tetrominoPos, tetrominoCells)) {
-            tetrominoPos.copy(oldPos);
-            tetrominoCells = oldCells;
+        if (rotated) {
+            const kicked = attemptKick(oldPos, tetrominoCells);
+            if (kicked) {
+                tetrominoPos.copy(kicked);
+            } else {
+                tetrominoPos.copy(oldPos);
+                tetrominoCells = oldCells;
+            }
+        } else {
+            if (!insideBounds(tetrominoPos, tetrominoCells)) {
+                tetrominoPos.copy(oldPos);
+            }
         }
         updateTetromino();
     });
