@@ -23,7 +23,6 @@
     const rows = 5;      // well length in cells
     const depth = 12;    // well depth in cells
     const cellSize = 1;
-    const wallThickness = 0.1;
     const wallHeight = depth * cellSize;
 
     const wellGroup = new THREE.Group();
@@ -53,37 +52,57 @@
     }
     wellGroup.add(gridGroup);
 
-    // Create wireframe walls
-    const wallMaterial = new THREE.MeshBasicMaterial({ wireframe: true });
-    const wallGeo1 = new THREE.BoxGeometry(cols * cellSize + wallThickness*2, wallHeight, wallThickness);
-    const wallGeo2 = new THREE.BoxGeometry(wallThickness, wallHeight, rows * cellSize);
+    // Add green grid lines on each wall
+    function addWallGrid(width, height, constant, orientation) {
+        // orientation: 'z' for planes parallel to X-Y at constant Z
+        //              'x' for planes parallel to Z-Y at constant X
+        for (let i = 0; i <= width; i++) {
+            const offset = (i - width / 2) * cellSize;
+            const points = orientation === 'z'
+                ? [
+                    new THREE.Vector3(offset, 0, constant),
+                    new THREE.Vector3(offset, height, constant)
+                  ]
+                : [
+                    new THREE.Vector3(constant, 0, offset),
+                    new THREE.Vector3(constant, height, offset)
+                  ];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            gridGroup.add(new THREE.Line(geometry, gridMaterial));
+        }
+        for (let j = 0; j <= height / cellSize; j++) {
+            const y = j * cellSize;
+            const points = orientation === 'z'
+                ? [
+                    new THREE.Vector3(-width * cellSize / 2, y, constant),
+                    new THREE.Vector3(width * cellSize / 2, y, constant)
+                  ]
+                : [
+                    new THREE.Vector3(constant, y, -width * cellSize / 2),
+                    new THREE.Vector3(constant, y, width * cellSize / 2)
+                  ];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            gridGroup.add(new THREE.Line(geometry, gridMaterial));
+        }
+    }
 
-    // Back and front walls
-    const backWall = new THREE.Mesh(wallGeo1, wallMaterial);
-    backWall.position.z = -rows*cellSize/2 - wallThickness/2;
-    backWall.position.y = wallHeight/2;
-    wellGroup.add(backWall);
+    // Back and front walls at constant z
+    const backZ = -rows * cellSize / 2;
+    const frontZ = rows * cellSize / 2;
+    addWallGrid(cols, wallHeight, backZ, 'z');
+    addWallGrid(cols, wallHeight, frontZ, 'z');
 
-    const frontWall = new THREE.Mesh(wallGeo1, wallMaterial);
-    frontWall.position.z = rows*cellSize/2 + wallThickness/2;
-    frontWall.position.y = wallHeight/2;
-    wellGroup.add(frontWall);
-
-    // Left and right walls
-    const leftWall = new THREE.Mesh(wallGeo2, wallMaterial);
-    leftWall.position.x = -cols*cellSize/2 - wallThickness/2;
-    leftWall.position.y = wallHeight/2;
-    wellGroup.add(leftWall);
-
-    const rightWall = new THREE.Mesh(wallGeo2, wallMaterial);
-    rightWall.position.x = cols*cellSize/2 + wallThickness/2;
-    rightWall.position.y = wallHeight/2;
-    wellGroup.add(rightWall);
+    // Left and right walls at constant x
+    const leftX = -cols * cellSize / 2;
+    const rightX = cols * cellSize / 2;
+    addWallGrid(rows, wallHeight, leftX, 'x');
+    addWallGrid(rows, wallHeight, rightX, 'x');
 
     scene.add(wellGroup);
 
     // Camera setup: perspective view from above the well
-    camera.position.set(8, 15, 8);
+    camera.position.set(0, wallHeight * 1.5, 0);
+    camera.up.set(0, 0, -1);
     camera.lookAt(0, 0, 0);
 
     function animate() {
