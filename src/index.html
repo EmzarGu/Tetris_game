@@ -100,59 +100,114 @@
 
     scene.add(wellGroup);
 
-    // Define a simple tetromino shape (T piece)
+    // Tetromino data (T shape). Coordinates are relative to the piece pivot at the origin.
     const tShape = [
-        [0, 0, 0],
-        [1, 0, 0],
-        [2, 0, 0],
-        [1, 1, 0]
+        new THREE.Vector3(-1, 0, 0),
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(1, 0, 0),
+        new THREE.Vector3(0, 1, 0)
     ];
 
     function createTetromino(cells) {
         const group = new THREE.Group();
         const geom = new THREE.BoxGeometry(cellSize, cellSize, cellSize);
         const edgeGeom = new THREE.EdgesGeometry(geom);
-        const material = new THREE.LineBasicMaterial({ color: 0x0000ff, linewidth: 4 });
-        cells.forEach(([x, y, z]) => {
+        const material = new THREE.LineBasicMaterial({ color: 0x0000ff, linewidth: 8 });
+        const cubes = [];
+        cells.forEach(() => {
             const edges = new THREE.LineSegments(edgeGeom, material);
-            edges.position.set((x - 1.5) * cellSize + cellSize / 2, y * cellSize + cellSize / 2, (z - 0.5) * cellSize + cellSize / 2);
             group.add(edges);
+            cubes.push(edges);
         });
-        return group;
+        return { group, cubes };
     }
 
-    const tetromino = createTetromino(tShape);
-    tetromino.position.y = wallHeight - cellSize * 2;
+    const { group: tetromino, cubes } = createTetromino(tShape);
+
+    // Position of the piece pivot in grid coordinates
+    const tetrominoPos = new THREE.Vector3(Math.floor(cols / 2), depth - 2, Math.floor(rows / 2));
+    let tetrominoCells = tShape.map(v => v.clone());
+
     scene.add(tetromino);
+
+    function updateTetromino() {
+        for (let i = 0; i < cubes.length; i++) {
+            const c = tetrominoCells[i];
+            cubes[i].position.set(
+                (tetrominoPos.x + c.x - cols / 2 + 0.5) * cellSize,
+                (tetrominoPos.y + c.y + 0.5) * cellSize,
+                (tetrominoPos.z + c.z - rows / 2 + 0.5) * cellSize
+            );
+        }
+    }
+
+    function insideBounds(pos, cells) {
+        for (const c of cells) {
+            const x = pos.x + c.x;
+            const y = pos.y + c.y;
+            const z = pos.z + c.z;
+            if (x < 0 || x >= cols || z < 0 || z >= rows || y < 0 || y >= depth) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function rotateX(dir) {
+        tetrominoCells = tetrominoCells.map(v => new THREE.Vector3(
+            v.x,
+            dir > 0 ? -v.z : v.z,
+            dir > 0 ? v.y : -v.y
+        ));
+    }
+
+    function rotateY(dir) {
+        tetrominoCells = tetrominoCells.map(v => new THREE.Vector3(
+            dir > 0 ? v.z : -v.z,
+            v.y,
+            dir > 0 ? -v.x : v.x
+        ));
+    }
+
+    updateTetromino();
 
     document.addEventListener('keydown', (event) => {
         const key = event.key.toLowerCase();
+        const oldPos = tetrominoPos.clone();
+        const oldCells = tetrominoCells.map(v => v.clone());
         switch (key) {
             case 'arrowleft':
-                tetromino.position.x -= cellSize;
+                tetrominoPos.x -= 1;
                 break;
             case 'arrowright':
-                tetromino.position.x += cellSize;
+                tetrominoPos.x += 1;
                 break;
             case 'arrowup':
-                tetromino.position.z -= cellSize;
+                tetrominoPos.z -= 1;
                 break;
             case 'arrowdown':
-                tetromino.position.z += cellSize;
+                tetrominoPos.z += 1;
                 break;
             case 'a':
-                tetromino.rotation.y += Math.PI / 2;
+                rotateY(1);
                 break;
             case 'd':
-                tetromino.rotation.y -= Math.PI / 2;
+                rotateY(-1);
                 break;
             case 'w':
-                tetromino.rotation.x += Math.PI / 2;
+                rotateX(1);
                 break;
             case 's':
-                tetromino.rotation.x -= Math.PI / 2;
+                rotateX(-1);
                 break;
+            default:
+                return;
         }
+        if (!insideBounds(tetrominoPos, tetrominoCells)) {
+            tetrominoPos.copy(oldPos);
+            tetrominoCells = oldCells;
+        }
+        updateTetromino();
     });
 
     // Camera setup: perspective view from above the well
