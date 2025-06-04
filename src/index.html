@@ -4,12 +4,37 @@
     <meta charset="UTF-8">
     <title>3D Tetris Well</title>
     <style>
-        body { margin: 0; overflow: hidden; }
+        body { margin: 0; overflow: hidden; font-family: sans-serif; }
         canvas { display: block; }
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            padding: 8px;
+            color: white;
+        }
+        #controls {
+            margin-top: 8px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        button { margin-right: 4px; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 </head>
 <body>
+<div id="overlay">
+    <div id="score">Score: 0</div>
+    <div id="highScore">High Score: 0</div>
+    <div id="controls">
+        Move: ← ↑ → ↓<br>
+        Rotate: W/A/S/D<br>
+        Pause: Space<br>
+        Reset: R
+    </div>
+    <button id="pauseBtn">Pause</button>
+    <button id="resetBtn">Reset</button>
+</div>
 <script>
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -17,6 +42,11 @@
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
+
+    const scoreEl = document.getElementById('score');
+    const highScoreEl = document.getElementById('highScore');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const resetBtn = document.getElementById('resetBtn');
 
     // Create well dimensions
     const cols = 5;      // well width in cells
@@ -178,9 +208,18 @@
     const board = [];
     for (let x = 0; x < cols; x++) {
         board[x] = [];
-        for (let y = 0; y < depth; y++) {
-            board[x][y] = new Array(rows).fill(null);
-        }
+    for (let y = 0; y < depth; y++) {
+        board[x][y] = new Array(rows).fill(null);
+    }
+}
+
+    let score = 0;
+    let highScore = 0;
+    let paused = false;
+
+    function updateScore() {
+        scoreEl.textContent = `Score: ${score}`;
+        highScoreEl.textContent = `High Score: ${highScore}`;
     }
 
     function createTetromino(cells, color) {
@@ -210,6 +249,47 @@
     let gameOver = false;
     let dropTimer;
 
+    function startDropTimer() {
+        clearInterval(dropTimer);
+        if (!paused) {
+            dropTimer = setInterval(dropPiece, 2000);
+        }
+    }
+
+    function pauseGame() {
+        if (paused) return;
+        paused = true;
+        clearInterval(dropTimer);
+        pauseBtn.textContent = 'Resume';
+    }
+
+    function resumeGame() {
+        if (!paused) return;
+        paused = false;
+        pauseBtn.textContent = 'Pause';
+        startDropTimer();
+    }
+
+    function resetGame() {
+        highScore = Math.max(highScore, score);
+        score = 0;
+        updateScore();
+        // remove all cubes from scene
+        for (let x = 0; x < cols; x++) {
+            for (let y = 0; y < depth; y++) {
+                for (let z = 0; z < rows; z++) {
+                    const cube = board[x][y][z];
+                    if (cube) cube.parent.remove(cube);
+                    board[x][y][z] = null;
+                }
+            }
+        }
+        gameOver = false;
+        paused = false;
+        pauseBtn.textContent = 'Pause';
+        spawnTetromino();
+    }
+
     function updateTetromino() {
         if (!tetromino) return;
         for (let i = 0; i < cubes.length; i++) {
@@ -238,7 +318,7 @@
     }
 
     function dropPiece() {
-        if (hasLanded || gameOver) return;
+        if (hasLanded || gameOver || paused) return;
         tetrominoPos.y -= 1;
         if (!canPlace(tetrominoPos, tetrominoCells)) {
             tetrominoPos.y += 1;
@@ -292,6 +372,8 @@
             }
             if (full) {
                 removeLayer(y);
+                score++;
+                updateScore();
                 y--; // recheck same layer index after collapsing
             }
         }
@@ -341,6 +423,8 @@
         tetrominoCells = shape.cells.map(v => v.clone());
         if (!canPlace(tetrominoPos, tetrominoCells)) {
             gameOver = true;
+            highScore = Math.max(highScore, score);
+            updateScore();
             alert('Game Over');
             return;
         }
@@ -351,14 +435,26 @@
         hasLanded = false;
         scene.add(tetromino);
         updateTetromino();
-        dropTimer = setInterval(dropPiece, 2000);
+        startDropTimer();
     }
 
+    updateScore();
     spawnTetromino();
+    pauseBtn.addEventListener('click', () => paused ? resumeGame() : pauseGame());
+    resetBtn.addEventListener('click', resetGame);
 
     document.addEventListener('keydown', (event) => {
-        if (gameOver) return;
         const key = event.key.toLowerCase();
+        if (key === ' ') {
+            paused ? resumeGame() : pauseGame();
+            return;
+        }
+        if (key === 'r') {
+            resetGame();
+            return;
+        }
+        if (gameOver || paused) return;
+        
         const oldPos = tetrominoPos.clone();
         const oldCells = tetrominoCells.map(v => v.clone());
         let rotated = false;
