@@ -137,11 +137,10 @@
 
     scene.add(wellGroup);
 
-    // Tetromino definitions with individual colors
+    // Tetromino definitions
     const shapes = [
         {
             // I piece
-            color: 0x00ffff,
             cells: [
                 new THREE.Vector3(-2, 0, 0),
                 new THREE.Vector3(-1, 0, 0),
@@ -151,7 +150,6 @@
         },
         {
             // O piece
-            color: 0xffff00,
             cells: [
                 new THREE.Vector3(0, 0, 0),
                 new THREE.Vector3(1, 0, 0),
@@ -161,7 +159,6 @@
         },
         {
             // T piece
-            color: 0x800080,
             cells: [
                 new THREE.Vector3(-1, 0, 0),
                 new THREE.Vector3(0, 0, 0),
@@ -171,7 +168,6 @@
         },
         {
             // S piece
-            color: 0x00ff00,
             cells: [
                 new THREE.Vector3(0, 0, 0),
                 new THREE.Vector3(1, 0, 0),
@@ -181,7 +177,6 @@
         },
         {
             // Z piece
-            color: 0xff0000,
             cells: [
                 new THREE.Vector3(-1, 0, 0),
                 new THREE.Vector3(0, 0, 0),
@@ -191,7 +186,6 @@
         },
         {
             // J piece
-            color: 0x0000ff,
             cells: [
                 new THREE.Vector3(-1, 0, 0),
                 new THREE.Vector3(0, 0, 0),
@@ -201,7 +195,6 @@
         },
         {
             // L piece
-            color: 0xffa500,
             cells: [
                 new THREE.Vector3(-1, 0, 0),
                 new THREE.Vector3(0, 0, 0),
@@ -209,6 +202,12 @@
                 new THREE.Vector3(1, 1, 0)
             ]
         }
+    ];
+
+    const layerColors = [
+        0xff0000, 0xff7f00, 0xffff00, 0x7fff00,
+        0x00ff00, 0x00ff7f, 0x00ffff, 0x007fff,
+        0x0000ff, 0x7f00ff, 0xff00ff, 0xff007f
     ];
 
     // Board state: stores the mesh occupying each cell or null
@@ -223,6 +222,7 @@
     let score = 0;
     let highScore = 0;
     let level = 1;
+    let layersCleared = 0;
     let paused = false;
 
     function updateScore() {
@@ -231,13 +231,13 @@
         highScoreEl.textContent = `High Score: ${highScore}`;
     }
 
-    function createTetromino(cells, color) {
+    function createTetromino(cells) {
         const group = new THREE.Group();
         const geom = new THREE.BoxGeometry(cellSize, cellSize, cellSize);
         const mat = new THREE.MeshBasicMaterial({
-            color: color,
+            color: 0xffffff,
             transparent: true,
-            opacity: 0.5
+            opacity: 0.2
         });
         const edgeGeom = new THREE.EdgesGeometry(geom);
         const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2 });
@@ -285,6 +285,7 @@
         highScore = Math.max(highScore, score);
         score = 0;
         level = 1;
+        layersCleared = 0;
         updateScore();
         gameOverEl.style.display = 'none';
         // remove all cubes from scene
@@ -391,6 +392,7 @@
     }
 
     function clearFullLayers() {
+        let cleared = 0;
         for (let y = 0; y < depth; y++) {
             let full = true;
             for (let x = 0; x < cols && full; x++) {
@@ -400,12 +402,18 @@
             }
             if (full) {
                 removeLayer(y);
-                score += level;
-                level += 1;
-                updateScore();
-                startDropTimer();
+                layersCleared += 1;
+                cleared += 1;
                 y--; // recheck same layer index after collapsing
             }
+        }
+        const newLevel = Math.floor(layersCleared / 3) + 1;
+        if (newLevel !== level) {
+            level = newLevel;
+            startDropTimer();
+        }
+        if (cleared > 0) {
+            updateScore();
         }
     }
 
@@ -420,7 +428,10 @@
             for (let x = 0; x < cols; x++) {
                 for (let z = 0; z < rows; z++) {
                     const cube = board[x][yy][z];
-                    if (cube) cube.position.y -= cellSize;
+                    if (cube) {
+                        cube.position.y -= cellSize;
+                        cube.material.color.setHex(layerColors[yy - 1]);
+                    }
                     board[x][yy - 1][z] = cube;
                 }
             }
@@ -441,9 +452,13 @@
             const x = tetrominoPos.x + c.x;
             const y = tetrominoPos.y + c.y;
             const z = tetrominoPos.z + c.z;
-            board[x][y][z] = cubes[i];
+            const cube = cubes[i];
+            cube.material = new THREE.MeshBasicMaterial({ color: layerColors[y] });
+            board[x][y][z] = cube;
         }
         clearFullLayers();
+        score += level * 4;
+        updateScore();
         spawnTetromino();
     }
 
@@ -458,7 +473,7 @@
             gameOverEl.style.display = 'block';
             return;
         }
-        const created = createTetromino(shape.cells, shape.color);
+        const created = createTetromino(shape.cells);
         tetromino = created.group;
         cubes = created.cubes;
         tetrominoMaterial = created.material;
